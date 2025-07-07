@@ -12,9 +12,20 @@ import boto3
 from botocore.exceptions import ClientError
 
 # ─── Config ──────────────────────────────────────────────────────
+# TODO: Replace with your S3 bucket name where CSV files are stored (e.g., "my-model-evaluation")
+# Current value is a default; update to match your AWS S3 bucket
 BUCKET      = os.getenv("UPLOAD_BUCKET", "my-model-evalution")
+
+# TODO: Replace with your desired presigned URL expiration time in seconds (e.g., 3600 for 1 hour)
+# Current value is a default; adjust based on your security or usability needs
 PRESIGN_TTL = int(os.getenv("PRESIGN_TTL", 900))
+
+# TODO: Replace with your desired S3 object ACL (e.g., "public-read" or leave empty for private)
+# Current value is optional; set to "" if no ACL is needed, or specify a valid AWS ACL
 UPLOAD_ACL  = os.getenv("UPLOAD_ACL")            # optional
+
+# TODO: Replace with your preferred logging level (e.g., "DEBUG", "INFO", "ERROR")
+# Current value is a default; adjust based on your debugging or production needs
 LOG_LEVEL   = os.getenv("LOG_LEVEL", "INFO").upper()
 
 logging.basicConfig(level=LOG_LEVEL)

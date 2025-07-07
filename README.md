@@ -20,7 +20,8 @@ For detailed step-by-step instructions, see [setup_guide.md](docs/setup_guide.md
 8. View evaluation results.
 
 ## Contributors
-- [Your Name](your-github-profile)
+- Dr Debanjan Barman,
+( https://github.com/MasterDavvy )
 
 ## License
 [MIT License](https://choosealicense.com/licenses/mit/)

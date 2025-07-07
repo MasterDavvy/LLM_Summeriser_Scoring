@@ -7,7 +7,7 @@ This project allows users to upload CSV data, select columns to summarize, choos
 - Basic familiarity with the AWS Management Console (or follow the detailed setup guide).
 
 ## Setup
-For detailed step-by-step instructions, see [setup_guide.md](docs/setup_guide.md).
+For detailed step-by-step instructions, see [setup_guide.md](setup_guide.md).
 
 ## Usage
 1. Access the static website hosted on S3.

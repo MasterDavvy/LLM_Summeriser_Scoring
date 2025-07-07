@@ -7,12 +7,25 @@ s3      = boto3.client("s3")
 bedrock = boto3.client("bedrock-runtime")
 
 # ENV
+# TODO: Replace with your S3 bucket name where CSV files are stored (e.g., "my-model-evaluation")
+# Current value is a default; update to match your AWS S3 bucket
 BUCKET       = os.getenv("UPLOAD_BUCKET", "my-model-evalution")
+
+# TODO: Replace with your preference for auto-deleting uploaded files (set to "1" for true, "0" for false)
+# Current value is a default; adjust based on whether you want temporary files deleted after use
 AUTO_DELETE  = os.getenv("AUTO_DELETE", "1") == "1"
+
+# TODO: Replace with your desired Bedrock temperature value (e.g., 0.5 to 1.0)
+# Current value is a default; adjust for model creativity (lower for precise, higher for varied outputs)
 TEMP         = float(os.getenv("BEDROCK_TEMP", 0.7))
+
+# TODO: Replace with your desired maximum token limit for Bedrock responses (e.g., 500)
+# Current value is a default; adjust based on the length of summaries you need
 MAX_TOKENS   = int(os.getenv("MAX_TOKENS", 300))
 
 # Llama3 inference profile ARN (always use this for Llama 3)
+# TODO: Replace with your Llama 3 inference profile ARN if different (e.g., from your AWS Bedrock console)
+# Current value is specific to the user’s account; verify and update if your ARN differs
 LLAMA_PROFILE_ARN = "arn:aws:bedrock:us-east-1:349440382087:inference-profile/us.meta.llama3-1-8b-instruct-v1:0"
 
 # Logging & CORS

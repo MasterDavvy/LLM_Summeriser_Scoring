@@ -24,4 +24,4 @@ For detailed step-by-step instructions, see [setup_guide.md](setup_guide.md).
 ( https://github.com/MasterDavvy )
 
 ## License
-[MIT License](https://github.com/MasterDavvy/LLM_Summeriser_Scoring/blob/main/LICENSE))
+[MIT License](https://github.com/MasterDavvy/LLM_Summeriser_Scoring/blob/main/LICENSE)

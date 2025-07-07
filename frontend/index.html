@@ -170,9 +170,21 @@
    • Upload that CSV to /modelJudge
 -----------------------------------------------------------------------------*/
 
+// TODO: Replace with your API Gateway invoke URL for the summarizeData Lambda (e.g., https://your-api-id.execute-api.us-east-1.amazonaws.com/prod)
+// Current value is an example; update to match your deployed API
 const SUMMARISE_BASE = "https://sboh95utz2.execute-api.us-east-1.amazonaws.com/default";
-const JUDGE_BASE     = "https://qgbp7roinb.execute-api.us-east-1.amazonaws.com/default";
-const API_KEY        = "o7WwMP8Z0W8fFzMJrl6E917ICEA7b06tOSz1Tpn0";
+
+// TODO: Replace with your API Gateway invoke URL for the modelJudge Lambda (e.g., https://your-api-id.execute-api.us-east-1.amazonaws.com/prod)
+// Current value is an example; update to match your deployed API
+const JUDGE_BASE = "https://qgbp7roinb.execute-api.us-east-1.amazonaws.com/default";
+
+// TODO: Replace with your own API key generated in AWS API Gateway for authentication
+// Current value is an example; generate a new key in the API Gateway console and update here
+const API_KEY = "o7WwMP8Z0W8fFzMJrl6E917ICEA7b06tOSz1Tpn0";
+
+// TODO: Optionally add your GitHub username or profile link in the comments below for attribution
+// Example: // Created by YourUsername (https://github.com/YourUsername)
+const CREATOR_INFO = "Created by [YourUsername] (https://github.com/YourUsername)";
 
 /* ---------- DOM refs ----------------------------------------------------- */
 const csvInp   = document.getElementById("csv");
@@ -404,4 +416,3 @@ judgeBtn.addEventListener("click", async ()=>{
 </script>
 </body>
 </html>
-

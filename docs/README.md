@@ -24,4 +24,4 @@ For detailed step-by-step instructions, see [setup_guide.md](setup_guide.md).
 ( https://github.com/MasterDavvy )
 
 ## License
-[MIT License](https://choosealicense.com/licenses/mit/)
+[MIT License](LICENSE)

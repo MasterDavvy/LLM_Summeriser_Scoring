@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>LLM Summariser + Judge</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    :root {
+      --bg1: #eef2ff;
+      --bg2: #e0e7ff;
+      --indigo: #4f46e5;
+      --gray: #374151;
+      --light: #e5e7eb;
+    }
+    * { box-sizing: border-box; font-family: system-ui, sans-serif; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--bg1), var(--bg2));
+    }
+    form {
+      width: 100%;
+      max-width: 28rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    h1 {
+      margin: 0 0 1.5rem;
+      font-size: 1.8rem;
+      color: var(--gray);
+    }
+    fieldset {
+      border: 1px solid var(--light);
+      padding: 1rem;
+      border-radius: .5rem;
+    }
+    legend { font-weight: 600; }
+    input, button {
+      padding: .5rem;
+      border: 1px solid var(--light);
+      border-radius: .375rem;
+      width: 100%;
+    }
+    button {
+      background: var(--indigo);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+    #result, #judgeResult {
+      margin-top: 2rem;
+      max-width: 90vw;
+      width: 100%;
+      white-space: pre-wrap;
+      background: #fff;
+      padding: 1rem;
+      border-radius: .5rem;
+      box-shadow: 0 2px 6px rgba(0,0,0,.08);
+    }
+    .hidden { display: none; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 0 auto;
+      font-size: .98em;
+    }
+    th, td {
+      border: 1px solid #c7d0eb;
+      padding: .5em .7em;
+      text-align: left;
+      vertical-align: top;
+      max-width: 28vw;
+      overflow-x: auto;
+    }
+    th { background: var(--indigo); color: #fff; }
+    td { background: #f7f8fd; }
+    .runmsg {
+      margin: .5em 0;
+      color: var(--indigo);
+      font-weight: 500;
+      letter-spacing: .02em;
+    }
+  </style>
+</head>
+<body>
+  <h1>LLM Summariser Evaluator</h1>
+  <form id="form">
+    <input type="file" id="csv" accept=".csv" required />
+
+    <!-- Column picker for summarisation -->
+    <fieldset id="colBox" class="hidden">
+      <legend>Columns to Summarise</legend>
+      <label><input type="checkbox" id="selAllCols"> <strong>Select all</strong></label>
+      <div id="cols" style="margin-top:.5rem"></div>
+    </fieldset>
+
+    <!-- Row range picker -->
+    <fieldset id="rowBox" class="hidden">
+      <legend>Rows</legend>
+      <label><input type="checkbox" id="allRows" checked> <strong>All rows</strong></label>
+      <div id="rowRange" style="display:flex; gap:.5rem; margin-top:.5rem">
+        <input type="number" id="rowStart" placeholder="From" min="1" disabled>
+        <input type="number" id="rowEnd"   placeholder="To"   min="1" disabled>
+      </div>
+    </fieldset>
+
+    <!-- Summariser models -->
+    <fieldset>
+      <legend>Summariser Models</legend>
+      <label><input type="checkbox" value="amazon.nova-lite-v1:0" class="summModel"> Nova Lite</label><br/>
+      <label><input type="checkbox" value="mistral.mistral-7b-instruct-v0:2" class="summModel"> Mistral 7B</label><br/>
+      <label><input type="checkbox" value="meta.llama3-1-8b-instruct-v1:0" class="summModel"> LLaMA-3 8B</label>
+    </fieldset>
+
+    <button id="go" disabled>Upload & Summarise</button>
+
+    <!-- Judge section -->
+    <fieldset id="judgeBox" class="hidden">
+      <legend>Judge Models</legend>
+      <label><input type="checkbox" id="selAllJudges"> <strong>Select all</strong></label>
+      <div id="judges" style="margin-top:.5rem">
+        <label><input type="checkbox" class="judge" value="us.anthropic.claude-3-7-sonnet-20250219-v1:0"> Claude 3.7 Sonnet</label><br/>
+        <label><input type="checkbox" class="judge" value="cohere.command-r-v1:0"> Cohere Command R</label><br/>
+        <label><input type="checkbox" class="judge" value="us.deepseek.r1-v1:0"> DeepSeek R1</label>
+      </div>
+    </fieldset>
+
+    <fieldset id="metricsBox" class="hidden">
+      <legend>Evaluation Metrics</legend>
+      <label><input type="checkbox" id="selAllMetrics"> <strong>Select all</strong></label>
+      <div id="metrics" style="margin-top:.5rem">
+        <!-- Objective metrics -->
+        <label><input type="checkbox" class="metric" value="exact_match"> Exact-match</label><br/>
+        <label><input type="checkbox" class="metric" value="rougeL"> ROUGE-L</label><br/>
+        <label><input type="checkbox" class="metric" value="bleu"> BLEU</label><br/>
+        <label><input type="checkbox" class="metric" value="code_exec"> Code-execution pass-rate</label><br/>
+        <!-- LLM-as-a-Judge criteria -->
+        <label><input type="checkbox" class="metric" value="helpfulness"> Helpfulness (LLM Judge)</label><br/>
+        <label><input type="checkbox" class="metric" value="correctness"> Correctness (LLM Judge)</label><br/>
+        <label><input type="checkbox" class="metric" value="richness"> Richness (LLM Judge)</label><br/>
+        <label><input type="checkbox" class="metric" value="safety"> Safety (LLM Judge)</label><br/>
+        <label><input type="checkbox" class="metric" value="toxicity"> Toxicity (LLM Judge)</label><br/>
+        <label><input type="checkbox" class="metric" value="style"> Style (LLM Judge)</label>
+      </div>
+    </fieldset>
+
+    <button id="judgeBtn" class="hidden" disabled>Run Judge</button>
+  </form>
+
+  <div id="result"></div>
+  <div id="judgeResult"></div>
+
+<script>
+/* ---------------------------------------------------------------------------
+   Front-end JS for “LLM Summariser + Judge”
+   • Upload user CSV ➜ call /summerizeData for each model
+   • Build a new CSV → 2-row header
+        Row, Input, …, Output, …
+        Row, <each input col>, <each model summary col>
+   • Upload that CSV to /modelJudge
+-----------------------------------------------------------------------------*/
+
+const SUMMARISE_BASE = "https://sboh95utz2.execute-api.us-east-1.amazonaws.com/default";
+const JUDGE_BASE     = "https://qgbp7roinb.execute-api.us-east-1.amazonaws.com/default";
+const API_KEY        = "o7WwMP8Z0W8fFzMJrl6E917ICEA7b06tOSz1Tpn0";
+
+/* ---------- DOM refs ----------------------------------------------------- */
+const csvInp   = document.getElementById("csv");
+const colBox   = document.getElementById("colBox");
+const colsDiv  = document.getElementById("cols");
+const selAllCols = document.getElementById("selAllCols");
+
+const rowBox   = document.getElementById("rowBox");
+const allRows  = document.getElementById("allRows");
+const rowStart = document.getElementById("rowStart");
+const rowEnd   = document.getElementById("rowEnd");
+
+const goBtn    = document.getElementById("go");
+
+const judgeBox   = document.getElementById("judgeBox");
+const selAllJud  = document.getElementById("selAllJudges");
+const judgeDiv   = document.getElementById("judges");
+
+const metricsBox = document.getElementById("metricsBox");
+const selAllMet  = document.getElementById("selAllMetrics");
+const metricsDiv = document.getElementById("metrics");
+
+const judgeBtn = document.getElementById("judgeBtn");
+
+const resultDiv      = document.getElementById("result");
+const judgeResultDiv = document.getElementById("judgeResult");
+
+/* ---------- State -------------------------------------------------------- */
+let s3Key = "";                 // original upload key
+let summariserModels = [];      // ids selected
+let tableRows = [];             // [{row, <modelId>: summary, …}]
+let inputTexts  = {};           // rowNo → combined text
+let inputFields = {};           // rowNo → { col : val }
+
+/* ---------- Friendly names ---------------------------------------------- */
+const summariserNames = {
+  "amazon.nova-lite-v1:0"          : "Nova Lite Summary",
+  "mistral.mistral-7b-instruct-v0:2": "Mistral 7B Summary",
+  "meta.llama3-1-8b-instruct-v1:0" : "LLaMA-3 8B Summary"
+};
+const judgeNames = {
+  "us.anthropic.claude-3-7-sonnet-20250219-v1:0": "Claude 3.7 Sonnet",
+  "cohere.command-r-v1:0"                       : "Command R",
+  "us.deepseek.r1-v1:0"                         : "DeepSeek R1"
+};
+const metricNames = {
+  exact_match:"Exact Match", rougeL:"ROUGE-L", bleu:"BLEU", code_exec:"Code Exec Pass-Rate",
+  helpfulness:"Helpfulness", correctness:"Correctness", richness:"Richness",
+  safety:"Safety", toxicity:"Toxicity", style:"Style"
+};
+
+/* ---------- Helpers ------------------------------------------------------ */
+const esc = s => (s||"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
+
+function enableGo() {
+  const fileOk   = csvInp.files.length;
+  const colOk    = !!colsDiv.querySelector(".col:checked");
+  const modelOk  = !!document.querySelector(".summModel:checked");
+  let   rowsOk   = true;
+  if (!allRows.checked) {
+    const s = +rowStart.value||0, e = +rowEnd.value||0;
+    rowsOk = s>=1 && e>=s;
+  }
+  goBtn.disabled = !(fileOk && colOk && modelOk && rowsOk);
+}
+function enableJudge() {
+  const judOk = !!document.querySelector(".judge:checked");
+  const metOk = !!document.querySelector(".metric:checked");
+  judgeBtn.disabled = !(judOk || metOk);
+}
+
+/* ---------- UI events ---------------------------------------------------- */
+selAllCols.addEventListener("change",()=>{colsDiv.querySelectorAll(".col").forEach(cb=>cb.checked=selAllCols.checked); enableGo();});
+selAllJud .addEventListener("change",()=>{judgeDiv  .querySelectorAll(".judge").forEach(cb=>cb.checked=selAllJud.checked ); enableJudge();});
+selAllMet .addEventListener("change",()=>{metricsDiv.querySelectorAll(".metric").forEach(cb=>cb.checked=selAllMet.checked); enableJudge();});
+
+allRows.addEventListener("change", ()=>{
+  const dis = allRows.checked;
+  rowStart.disabled=rowEnd.disabled=dis;
+  if(dis){rowStart.value=rowEnd.value="";}
+  enableGo();
+});
+
+document.addEventListener("change", ()=>{
+  enableGo();
+  if(!judgeBox.classList.contains("hidden")) enableJudge();
+});
+
+/* ---------- Populate column list on file choose ------------------------- */
+csvInp.addEventListener("change", e=>{
+  const f=e.target.files[0]; if(!f) return;
+  Papa.parse(f,{header:true,preview:1,complete:res=>{
+    const headers=Object.keys(res.data[0]||{});
+    colsDiv.innerHTML="";
+    headers.forEach(h=>colsDiv.insertAdjacentHTML("beforeend",
+      `<label><input type="checkbox" class="col" value="${esc(h)}"> ${esc(h)}</label><br/>`));
+    selAllCols.checked=true; selAllCols.dispatchEvent(new Event("change"));
+    colBox.classList.remove("hidden"); rowBox.classList.remove("hidden");
+  }});
+});
+
+/* ---------- Upload & Summarise ----------------------------------------- */
+document.getElementById("form").addEventListener("submit", async ev=>{
+  ev.preventDefault(); if(judgeBtn.dataset.running==="true") return;
+  goBtn.disabled=true;
+  resultDiv.innerHTML=""; judgeResultDiv.innerHTML="";
+  judgeBox.classList.add("hidden"); metricsBox.classList.add("hidden");
+  judgeBtn.classList.add("hidden");
+
+  /* 1️⃣  upload file */
+  const file = csvInp.files[0]; if(!file){goBtn.disabled=false;return;}
+  s3Key=`temp/tmp_${Date.now()}_${Math.random().toString(36).slice(2)}.csv`;
+  try{
+    const pres = await fetch(`${SUMMARISE_BASE}/summerizeData/presign?name=${encodeURIComponent(s3Key)}`,{headers:{'x-api-key':API_KEY}});
+    const {url} = await pres.json();
+    await fetch(url,{method:"PUT",body:file});            // File already has correct MIME
+  }catch(e){resultDiv.textContent="Upload failed: "+e; goBtn.disabled=false; return;}
+
+  /* 2️⃣ collect selections */
+  const selCols=[...colsDiv.querySelectorAll(".col:checked")].map(c=>c.value);
+  summariserModels=[...document.querySelectorAll(".summModel:checked")].map(c=>c.value);
+  let rStart=1,rEnd=null;
+  if(!allRows.checked){rStart=+rowStart.value||1;rEnd=+rowEnd.value||rStart;}
+
+  /* 3️⃣ call summerizeData per model */
+  tableRows=[];
+  const msg=document.createElement("div"); msg.className="runmsg"; resultDiv.appendChild(msg);
+  for(let i=0;i<summariserModels.length;i++){
+    const mid=summariserModels[i];
+    msg.textContent=`Summarising with ${mid} …`;
+    const payload={s3_key:s3Key,target_columns:selCols,model_ids:[mid],row_start:rStart,row_end:rEnd,final_run:i===summariserModels.length-1};
+    try{
+      const res=await fetch(`${SUMMARISE_BASE}/summerizeData`,{method:"POST",headers:{'x-api-key':API_KEY,'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const dat=await res.json();
+      if(i===0) dat.summaries.forEach(r=>tableRows.push({row:r.row}));
+      dat.summaries.forEach((r,idx)=>{tableRows[idx][mid]=r.models[mid]||"";});
+    }catch(e){msg.textContent=`Error with ${mid}: ${e.message}`;}
+  }
+  msg.textContent="Summaries complete ✓";
+
+  /* 4️⃣ scan original CSV once to store input texts & fields */
+  inputTexts={}; inputFields={}; let idx=0;
+  Papa.parse(file,{header:true,skipEmptyLines:true,step(res,parser){
+    idx++;
+    if(rEnd!==null && (idx<rStart||idx>rEnd)){ if(idx>rEnd) parser.abort(); return;}
+    inputTexts[idx]=selCols.map(c=>res.data[c]??"").join(" \n");
+    const obj={}; selCols.forEach(c=>obj[c]=res.data[c]??""); inputFields[idx]=obj;
+  }});
+
+  tableRows.forEach(r=>{r.inputText=inputTexts[r.row]||"";});
+
+  /* 5️⃣ show table preview */
+  const hdr=["Row","Input Text",...summariserModels.map(m=>summariserNames[m]||m)];
+  const headHTML="<tr>"+hdr.map(h=>`<th>${esc(h)}</th>`).join("")+"</tr>";
+  const bodyHTML=tableRows.map(r=>{
+    let cells=`<td>${r.row}</td><td>${esc(r.inputText)}</td>`;
+    summariserModels.forEach(m=>cells+=`<td>${esc(r[m]||"")}</td>`);
+    return `<tr>${cells}</tr>`;
+  }).join("");
+  resultDiv.innerHTML=`<table>${headHTML}${bodyHTML}</table>`;
+
+  judgeBox.classList.remove("hidden"); metricsBox.classList.remove("hidden");
+  judgeBtn.classList.remove("hidden"); enableJudge(); goBtn.disabled=false;
+});
+
+/* ---------- Run Judge --------------------------------------------------- */
+judgeBtn.addEventListener("click", async ()=>{
+  if(judgeBtn.dataset.running==="true") return;
+  judgeBtn.dataset.running="true"; judgeBtn.disabled=true; judgeResultDiv.innerHTML="";
+
+  const judgeIds=[...document.querySelectorAll(".judge:checked")].map(c=>c.value);
+  const metIds  =[...document.querySelectorAll(".metric:checked")].map(c=>c.value);
+  if(judgeIds.length===0&&metIds.length===0){judgeBtn.dataset.running="false";judgeBtn.disabled=false;return;}
+
+  const msg=document.createElement("div"); msg.className="runmsg"; judgeResultDiv.appendChild(msg);
+
+  /* 1️⃣ build CSV matrix with grouped header */
+  msg.textContent="Preparing summaries CSV …";
+  const inCols = Object.keys(inputFields[tableRows[0].row]||{});
+  const outCols= summariserModels.map(m=>summariserNames[m]||m);
+
+  const matrix=[["Row",...inCols.map(_=>"Input"),...outCols.map(_=>"Output")],
+                ["Row",...inCols,...outCols]];
+
+  tableRows.forEach(r=>{
+    const arr=[r.row];
+    inCols .forEach(c=>arr.push(inputFields[r.row]?.[c]??""));
+    summariserModels.forEach(m=>arr.push(r[m]??""));
+    matrix.push(arr);
+  });
+  const csvText=Papa.unparse(matrix,{header:false});
+  const blob   =new Blob([csvText],{type:"text/csv"});
+
+  /* 2️⃣ upload */
+  const upKey=`temp2/tmp_${Date.now()}_${Math.random().toString(36).slice(2)}_summaries.csv`;
+  try{
+    const pres=await fetch(`${JUDGE_BASE}/modelJudge/presign?name=${encodeURIComponent(upKey)}`,{headers:{'x-api-key':API_KEY}});
+    const {url}=await pres.json();
+    await fetch(url,{method:"PUT",headers:{'Content-Type':'text/csv'},body:blob});
+  }catch(e){msg.textContent="Upload error: "+e.message; judgeBtn.dataset.running="false"; judgeBtn.disabled=false; return;}
+
+  /* 3️⃣ invoke judge */
+  msg.textContent="Judging …";
+  try{
+    const res=await fetch(`${JUDGE_BASE}/modelJudge`,{method:"POST",headers:{'x-api-key':API_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({s3_key:upKey,judge_model_ids:judgeIds,metrics:metIds,final_run:true})});
+    const dat=await res.json();
+
+    /* 4️⃣ render */
+    const evalItems=[...metIds,...judgeIds];
+    const head=["Row",...evalItems.map(i=>metricNames[i]||judgeNames[i]||i)];
+    const headHTML="<tr>"+head.map(h=>`<th>${esc(h)}</th>`).join("")+"</tr>";
+
+    const bodyHTML=dat.judgements.map(r=>{
+      let cells=`<td>${r.row}</td>`;
+      evalItems.forEach(i=>{
+        let v="";
+        if(judgeIds.includes(i)) v=r.scores?.[i]??"";
+        else v=r.metrics?.[i]??"";
+        cells+=`<td>${esc(String(v))}</td>`;
+      });
+      return `<tr>${cells}</tr>`;
+    }).join("");
+    judgeResultDiv.innerHTML=`<table>${headHTML}${bodyHTML}</table>`;
+    msg.textContent="Judging complete ✓";
+  }catch(e){msg.textContent="Judge error: "+e.message;}
+  judgeBtn.dataset.running="false"; judgeBtn.disabled=false;
+});
+</script>
+</body>
+</html>
+just give me the part need to be changed
